@@ -19,7 +19,10 @@ def parse_headers(json_data, ws):
     # Поле width оказалось неактуальным для ширины колонок в экселе, так что ширина колонок остается стандартной
     ws.append(header['info'] for header in headers)
     # Возвращаем пронумерованные координаты X для заголовков (колонка в экселе - координата) для заполнения значений
-    return list(enumerate(header['x'] for header in headers))
+    enum_headers = enumerate((header['x'] for header in headers), start=1)
+    ret_headers = dict((j, i) for i, j in enum_headers)
+
+    return ret_headers
 
 
 def parse_values(json_data, ws, headers_to_cols):
@@ -41,19 +44,18 @@ def parse_values(json_data, ws, headers_to_cols):
     values.sort(key=itemgetter('y', 'x'))
     y0 = values[0]['y']
     curr_row = 2
+    # Создаём копию переданного словаря колонок, чтобы можно было удалять использованные для текущей строки значения
     curr_cols = headers_to_cols.copy()
     for value in values:
         if value['y'] > y0:
             curr_row += 1
             y0 = value['y']
-            curr_cols = headers_to_cols
-        for col, header in curr_cols:
-            if header == value['x']:
-                ws.cell(curr_row, col + 1, value['info'])
-                curr_cols.remove((col, header))
-                break
+            # Обновляем текущий словарь колонок при переходе на следующую строку
+            curr_cols = headers_to_cols.copy()
+        if value['x'] in curr_cols:
+            # Используем оператор pop, чтобы исключить наложение ячеек друг на друга
+            ws.cell(curr_row, curr_cols.pop(value['x']), value['info'])
         else:
-            print(y0)
             raise Exception(f'Данное значение X value ({value["x"]}) не подходит по полю X ни одному Header. Проверьте '
                             f'валидность данных')
 
